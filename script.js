@@ -1,1056 +1,699 @@
-// === نظام البطاقات التفاعلية - النسخة المتطورة ===
-
 // === Animate.css helper ===
-function animateOnce(el, className, dur=800){ 
-    if(!el) return; 
-    el.classList.add('animated', className); 
-    setTimeout(()=>{ 
-        el.classList.remove('animated', className); 
-    }, dur); 
-}
+function animateOnce(el, className, dur=800){ if(!el) return; el.classList.add('animated', className); setTimeout(()=>{ el.classList.remove('animated', className); }, dur); }
 
-// === نظام التهيئة ===
-let isInitialized = false;
-let initializationTime = null;
-
-// === البيانات الأساسية ===
+// Base state & helpers
 const DEFAULTS = window.DEFAULT_ITEMS || [];
-let ITEMS = [];
-let DATA_FILE = null;
-let currentLanguage = 'ar';
+let ITEMS = loadItems() || DEFAULTS.slice();
+function loadItems(){ try{ const raw = localStorage.getItem('cardsItems'); return raw? JSON.parse(raw): null; }catch(e){ return null; } }
+function saveItems(){ localStorage.setItem('cardsItems', JSON.stringify(ITEMS)); }
+function getImgSrc(item){ return item.img || `assets/${item.id}.png`; }
 
-// === نظام تخزين البيانات ===
-function loadItems() {
-    try {
-        const raw = localStorage.getItem('cardsItems');
-        const items = raw ? JSON.parse(raw) : null;
-        
-        if (items && Array.isArray(items) && items.length > 0) {
-            ITEMS = items;
-            return true;
-        }
-        
-        // إذا لم توجد بيانات، نستخدم الافتراضية
-        ITEMS = [...DEFAULTS];
-        saveItems();
-        return true;
-    } catch(e) {
-        console.error('خطأ في تحميل البيانات:', e);
-        ITEMS = [...DEFAULTS];
-        saveItems();
-        return false;
-    }
-}
+// Cards UI
+const grid = document.getElementById('cardsGrid');
+const langSelect = document.getElementById('langSelect');
+const toggleNamesBtn = document.getElementById('toggleNames');
+const shuffleBtn = document.getElementById('shuffleBtn');
+const resetBtn = document.getElementById('resetBtn');
+const statsBtn = document.getElementById('statsBtn');
+const helpBtn = document.getElementById('helpBtn');
 
-function saveItems() {
-    try {
-        localStorage.setItem('cardsItems', JSON.stringify(ITEMS));
-        updateCardsCount();
-        return true;
-    } catch(e) {
-        console.error('خطأ في حفظ البيانات:', e);
-        showNotification('❌ خطأ في حفظ البيانات', 'error');
-        return false;
-    }
-}
-
-function getImgSrc(item) {
-    // إذا كانت الصورة بصيغة base64
-    if (item.img && item.img.startsWith('data:image')) {
-        return item.img;
-    }
-    // إذا كان لدينا رابط خارجي
-    if (item.img && (item.img.startsWith('http://') || item.img.startsWith('https://'))) {
-        return item.img;
-    }
-    // المحاولة من مجلد assets
-    return item.img || `assets/${item.id}.png`;
-}
-
-// === نظام قراءة الملفات ===
-function readFileAsText(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target.result);
-        reader.onerror = reject;
-        reader.readAsText(file);
-    });
-}
-
-async function loadFromFile(file) {
-    try {
-        const content = await readFileAsText(file);
-        const data = JSON.parse(content);
-        
-        if (Array.isArray(data)) {
-            ITEMS = data;
-            DATA_FILE = file;
-            saveItems();
-            return true;
-        } else {
-            throw new Error('تنسيق الملف غير صالح');
-        }
-    } catch (error) {
-        console.error('خطأ في قراءة الملف:', error);
-        return false;
-    }
-}
-
-// === عناصر الواجهة ===
-const elements = {
-    grid: document.getElementById('cardsGrid'),
-    langSelect: document.getElementById('langSelect'),
-    toggleNamesBtn: document.getElementById('toggleNames'),
-    shuffleBtn: document.getElementById('shuffleBtn'),
-    resetBtn: document.getElementById('resetBtn'),
-    homeBtn: document.getElementById('homeBtn'),
-    testsBtn: document.getElementById('testsBtn'),
-    cardsMode: document.getElementById('cardsMode'),
-    testsHub: document.getElementById('testsHub'),
-    matchMode: document.getElementById('matchMode'),
-    lettersMode: document.getElementById('lettersMode'),
-    goMatch: document.getElementById('goMatch'),
-    goLetters: document.getElementById('goLetters'),
-    goCards: document.getElementById('goCards'),
-    cardsCount: document.getElementById('cardsCount'),
-    totalPlays: document.getElementById('totalPlays'),
-    totalWins: document.getElementById('totalWins'),
-    bestScore: document.getElementById('bestScore'),
-    playTime: document.getElementById('playTime')
-};
-
-// === متغيرات الحالة ===
 let showNames = true;
-let currentOrder = [];
-let soundEnabled = localStorage.getItem('soundEnabled') !== 'false';
-let darkMode = localStorage.getItem('darkMode') === 'true';
+let currentOrder = [...ITEMS];
 
-// === تهيئة النظام ===
-function initSystem() {
-    if (isInitialized) return;
-    
-    initializationTime = new Date();
-    
-    // تحميل البيانات
-    loadItems();
-    
-    // تهيئة واجهة المستخدم
-    initUI();
-    
-    // تحميل الإحصائيات
-    loadStats();
-    
-    // تهيئة نظام الصوت
-    initSoundSystem();
-    
-    // إخفاء شاشة التحميل وإظهار المحتوى
-    setTimeout(() => {
-        document.getElementById('loadingScreen').style.display = 'none';
-        document.getElementById('mainContent').style.display = 'block';
-        animateOnce(document.getElementById('mainContent'), 'fadeIn');
-    }, 1000);
-    
-    isInitialized = true;
-}
-
-function initUI() {
-    // تحديث عدد البطاقات
-    updateCardsCount();
-    
-    // تهيئة النظام الليلي
-    if (darkMode) {
-        document.body.classList.add('dark-mode');
-        document.getElementById('toggleTheme').innerHTML = '<i class="fas fa-sun"></i> الوضع النهاري';
-    }
-    
-    // تهيئة نظام الصوت
-    updateSoundButton();
-    
-    // عرض البطاقات
-    renderCards();
-    
-    // إضافة الأحداث
-    setupEventListeners();
-}
-
-// === عرض البطاقات ===
-function renderCards() {
-    if (!elements.grid) return;
-    
-    if (!ITEMS.length) {
-        elements.grid.innerHTML = `
-            <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px;">
-                <div style="width: 100px; height: 100px; background: #F3F4F6; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 40px; color: #9CA3AF;">
-                    <i class="fas fa-inbox"></i>
-                </div>
-                <h3 style="color: #6B7280; margin-bottom: 10px;">لا توجد بطاقات</h3>
-                <p style="color: #9CA3AF; margin-bottom: 20px;">يمكنك رفع ملف البيانات أو استخدام البيانات الافتراضية</p>
-                <div style="display: flex; gap: 10px; justify-content: center;">
-                    <button id="useDefaultsBtn2" class="btn btn-primary">
-                        <i class="fas fa-database"></i> استخدام البيانات الافتراضية
-                    </button>
-                    <label class="btn btn-outline" style="cursor: pointer;">
-                        <i class="fas fa-upload"></i> رفع ملف بيانات
-                        <input type="file" id="fileUpload2" accept=".json" style="display: none;">
-                    </label>
-                </div>
-            </div>
-        `;
-        
-        document.getElementById('useDefaultsBtn2')?.addEventListener('click', useDefaultData);
-        document.getElementById('fileUpload2')?.addEventListener('change', handleFileUpload);
-        return;
-    }
-    
-    currentOrder = [...ITEMS];
-    elements.grid.innerHTML = '';
-    
-    currentOrder.forEach(item => {
-        const card = createCardElement(item);
-        elements.grid.appendChild(card);
-    });
-}
-
-function createCardElement(item) {
+function render(){
+  grid.innerHTML='';
+  currentOrder.forEach(item=>{
     const card = document.createElement('div');
-    card.className = 'card';
-    card.dataset.id = item.id;
-    
-    const language = elements.langSelect?.value || 'ar';
-    const cardName = item[language] || item.ar || item.en || '';
-    
-    card.innerHTML = `
-        <div class="card-inner">
-            <div class="face front">
-                <img class="figure" src="${getImgSrc(item)}" alt="${cardName}" 
-                     onerror="this.src='assets/placeholder.png'; this.onerror=null;" />
-                <div class="actions">
-                    <button class="icon-btn speak" title="نطق الكلمة">
-                        <i class="fas fa-volume-up"></i>
-                    </button>
-                    <button class="icon-btn info" title="معلومات البطاقة">
-                        <i class="fas fa-info"></i>
-                    </button>
-                </div>
-                <div class="name ${showNames ? '' : 'hidden'}">${cardName}</div>
-            </div>
-            <div class="face back">
-                <div class="name">${cardName}</div>
-                <div class="actions">
-                    <button class="icon-btn speak" title="نطق الكلمة">
-                        <i class="fas fa-volume-up"></i>
-                    </button>
-                    <button class="icon-btn flip-back" title="العودة">
-                        <i class="fas fa-undo"></i>
-                    </button>
-                </div>
-                <div class="card-details" style="margin-top: 15px; font-size: 14px; color: #6B7280;">
-                    ${item.category ? `<div><i class="fas fa-folder"></i> ${item.category}</div>` : ''}
-                    ${item.difficulty ? `<div><i class="fas fa-star"></i> ${['سهل', 'متوسط', 'صعب'][item.difficulty - 1]}</div>` : ''}
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // أحداث النقر
-    card.addEventListener('click', (e) => {
-        if (e.target.closest('.speak') || e.target.closest('.info') || e.target.closest('.flip-back')) {
-            return;
-        }
-        card.classList.toggle('flipped');
-        playSound('flip');
-        trackCardFlip(item.id);
+    card.className='card';
+    card.innerHTML=`<div class="card-inner"><div class="face front"><img class="figure" src="${getImgSrc(item)}" alt="${item[langSelect.value]}" /><div class="actions"><button class="icon-btn speak">🔊</button></div><div class="name ${showNames?"":"hidden"}">${item[langSelect.value]}</div></div><div class="face back"><div class="name">${item[langSelect.value]}</div><div class="actions"><button class="icon-btn speak">🔊</button></div></div></div>`;
+    card.addEventListener('click', (e)=>{ 
+      if (e.target && e.target.classList.contains('speak')) return; 
+      card.classList.toggle('flipped');
+      playSound('click');
+      updateStats('cardsFlipped');
     });
-    
-    // أحداث الأزرار
-    const speakBtn = card.querySelector('.speak');
-    if (speakBtn) {
-        speakBtn.addEventListener('click', () => {
-            speakText(cardName, language);
-            playSound('click');
-        });
-    }
-    
-    const infoBtn = card.querySelector('.info');
-    if (infoBtn) {
-        infoBtn.addEventListener('click', () => {
-            showCardInfo(item);
-            playSound('click');
-        });
-    }
-    
-    const flipBackBtn = card.querySelector('.flip-back');
-    if (flipBackBtn) {
-        flipBackBtn.addEventListener('click', () => {
-            card.classList.remove('flipped');
-            playSound('click');
-        });
-    }
-    
-    return card;
+    card.querySelectorAll('.speak').forEach(btn=> btn.addEventListener('click', ()=> {
+      speak(item[langSelect.value], langSelect.value);
+      playSound('speak');
+      updateStats('cardsSpoken');
+    }));
+    grid.appendChild(card);
+  });
 }
 
-// === نظام النطق ===
-function speakText(text, lang) {
-    if (!('speechSynthesis' in window)) {
-        showNotification('متصفحك لا يدعم النطق الصوتي', 'warning');
-        return;
-    }
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = lang === 'ar' ? 'ar-SA' : 'en-US';
-    utterance.rate = 0.9;
-    utterance.pitch = 1.0;
-    utterance.volume = 1;
-    
-    // إيقاف أي نطق سابق
-    window.speechSynthesis.cancel();
-    
-    // بدء النطق
-    window.speechSynthesis.speak(utterance);
-    
-    // تتبع النطق
-    trackCardSpeak(text);
+function speak(text, lang){ 
+  if (!('speechSynthesis' in window)) return alert('متصفحك لا يدعم النطق الصوتي.'); 
+  const u=new SpeechSynthesisUtterance(text); 
+  u.lang=(lang==='ar')?'ar':'en'; 
+  u.rate=0.95; 
+  u.pitch=1.0; 
+  window.speechSynthesis.cancel(); 
+  window.speechSynthesis.speak(u); 
 }
 
-// === نظام الصوت ===
-function initSoundSystem() {
-    // إنشاء عناصر الصوت
-    const audioElements = {
-        click: createAudioElement('click'),
-        flip: createAudioElement('flip'),
-        success: createAudioElement('success'),
-        error: createAudioElement('error'),
-        win: createAudioElement('win')
-    };
-    
-    window.appAudio = audioElements;
+function shuffle(){ 
+  currentOrder=[...ITEMS].sort(()=>Math.random()-0.5); 
+  render();
+  playSound('click');
+  updateStats('cardsShuffled');
+}
+function reset(){ 
+  currentOrder=[...ITEMS]; 
+  render();
+  playSound('click');
 }
 
-function createAudioElement(type) {
-    const audio = document.createElement('audio');
-    audio.preload = 'auto';
-    
-    // أصوات بسيطة باستخدام Web Audio API
-    if (window.AudioContext) {
-        try {
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioContext) {
-                // نستخدم أصوات مدمجة بدلاً من ملفات
-                return audio;
-            }
-        } catch (e) {
-            console.log('Web Audio API غير مدعوم:', e);
-        }
-    }
-    
-    return audio;
-}
-
-function playSound(type) {
-    if (!soundEnabled) return;
-    
-    try {
-        if (window.appAudio && window.appAudio[type]) {
-            const audio = window.appAudio[type];
-            audio.currentTime = 0;
-            audio.play().catch(e => console.log('خطأ في تشغيل الصوت:', e));
-        }
-    } catch (e) {
-        console.log('خطأ في نظام الصوت:', e);
-    }
-}
-
-// === نظام الإحصائيات ===
-function loadStats() {
-    try {
-        const stats = JSON.parse(localStorage.getItem('appStats') || '{}');
-        
-        if (elements.totalPlays) {
-            elements.totalPlays.textContent = stats.totalPlays || 0;
-        }
-        
-        if (elements.totalWins) {
-            elements.totalWins.textContent = stats.totalWins || 0;
-        }
-        
-        if (elements.bestScore) {
-            elements.bestScore.textContent = stats.bestScore || 0;
-        }
-        
-        if (elements.playTime) {
-            const time = stats.totalPlayTime || 0;
-            const hours = Math.floor(time / 3600);
-            const minutes = Math.floor((time % 3600) / 60);
-            elements.playTime.textContent = `${hours}:${minutes.toString().padStart(2, '0')}`;
-        }
-    } catch (e) {
-        console.error('خطأ في تحميل الإحصائيات:', e);
-    }
-}
-
-function trackCardFlip(cardId) {
-    try {
-        const stats = JSON.parse(localStorage.getItem('appStats') || '{}');
-        stats.cardFlips = (stats.cardFlips || 0) + 1;
-        
-        // إحصائيات البطاقة
-        if (!stats.cards) stats.cards = {};
-        if (!stats.cards[cardId]) stats.cards[cardId] = { flips: 0, views: 0 };
-        stats.cards[cardId].flips = (stats.cards[cardId].flips || 0) + 1;
-        
-        localStorage.setItem('appStats', JSON.stringify(stats));
-    } catch (e) {
-        console.error('خطأ في تتبع البطاقة:', e);
-    }
-}
-
-function trackCardSpeak(text) {
-    try {
-        const stats = JSON.parse(localStorage.getItem('appStats') || '{}');
-        stats.speeches = (stats.speeches || 0) + 1;
-        localStorage.setItem('appStats', JSON.stringify(stats));
-    } catch (e) {
-        console.error('خطأ في تتبع النطق:', e);
-    }
-}
-
-// === نظام التنقل ===
-function showSection(section) {
-    // إخفاء جميع الأقسام
-    [elements.cardsMode, elements.testsHub, elements.matchMode, elements.lettersMode]
-        .forEach(s => s?.classList.add('hidden'));
-    
-    // إظهار القسم المطلوب
-    section?.classList.remove('hidden');
-    
-    // إذا كان قسم البطاقات، نحدث العرض
-    if (section === elements.cardsMode) {
-        renderCards();
-    }
-    
-    // إذا كان قسم الألعاب، نحدث الإحصائيات
-    if (section === elements.testsHub) {
-        loadStats();
-    }
-}
-
-// === معالجة الأحداث ===
-function setupEventListeners() {
-    // تبديل اللغة
-    if (elements.langSelect) {
-        elements.langSelect.addEventListener('change', (e) => {
-            currentLanguage = e.target.value;
-            renderCards();
-            playSound('click');
-        });
-    }
-    
-    // إظهار/إخفاء الأسماء
-    if (elements.toggleNamesBtn) {
-        elements.toggleNamesBtn.addEventListener('click', () => {
-            showNames = !showNames;
-            renderCards();
-            playSound('click');
-            elements.toggleNamesBtn.innerHTML = showNames ? 
-                '<i class="fas fa-eye-slash"></i> إخفاء الأسماء' : 
-                '<i class="fas fa-eye"></i> إظهار الأسماء';
-        });
-    }
-    
-    // خلط البطاقات
-    if (elements.shuffleBtn) {
-        elements.shuffleBtn.addEventListener('click', () => {
-            currentOrder = [...ITEMS].sort(() => Math.random() - 0.5);
-            renderCards();
-            playSound('click');
-            showNotification('🔀 تم خلط البطاقات', 'success');
-        });
-    }
-    
-    // إعادة الترتيب
-    if (elements.resetBtn) {
-        elements.resetBtn.addEventListener('click', () => {
-            currentOrder = [...ITEMS];
-            renderCards();
-            playSound('click');
-            showNotification('🔄 تم إعادة ترتيب البطاقات', 'success');
-        });
-    }
-    
-    // التنقل الرئيسي
-    if (elements.homeBtn) {
-        elements.homeBtn.addEventListener('click', () => {
-            showSection(elements.cardsMode);
-            playSound('click');
-        });
-    }
-    
-    if (elements.testsBtn) {
-        elements.testsBtn.addEventListener('click', () => {
-            showSection(elements.testsHub);
-            playSound('click');
-        });
-    }
-    
-    // التنقل في مركز الألعاب
-    if (elements.goCards) {
-        elements.goCards.addEventListener('click', () => {
-            showSection(elements.cardsMode);
-            playSound('click');
-        });
-    }
-    
-    if (elements.goMatch) {
-        elements.goMatch.addEventListener('click', () => {
-            initMatchGame();
-            showSection(elements.matchMode);
-            playSound('click');
-        });
-    }
-    
-    if (elements.goLetters) {
-        elements.goLetters.addEventListener('click', () => {
-            initLettersGame();
-            showSection(elements.lettersMode);
-            playSound('click');
-        });
-    }
-    
-    // العودة من الألعاب
-    const backButtons = ['backToGames', 'backToGames2'];
-    backButtons.forEach(id => {
-        const btn = document.getElementById(id);
-        if (btn) {
-            btn.addEventListener('click', () => {
-                showSection(elements.testsHub);
-                playSound('click');
-            });
-        }
-    });
-    
-    // رفع الملفات
-    const fileUploads = ['fileUpload', 'fileUpload2'];
-    fileUploads.forEach(id => {
-        const input = document.getElementById(id);
-        if (input) {
-            input.addEventListener('change', handleFileUpload);
-        }
-    });
-    
-    // حفظ البيانات
-    const saveBtn = document.getElementById('saveFileBtn');
-    if (saveBtn) {
-        saveBtn.addEventListener('click', saveToFile);
-    }
-    
-    // البيانات الافتراضية
-    const defaultBtns = ['useDefaultsBtn', 'useDefaultsBtn2'];
-    defaultBtns.forEach(id => {
-        const btn = document.getElementById(id);
-        if (btn) {
-            btn.addEventListener('click', useDefaultData);
-        }
-    });
-    
-    // الإحصائيات
-    const statsBtn = document.getElementById('showStats');
-    if (statsBtn) {
-        statsBtn.addEventListener('click', showStatsModal);
-    }
-    
-    // المساعدة
-    const helpBtns = ['helpBtnMain', 'quickHelp', 'matchHelp', 'lettersHelp'];
-    helpBtns.forEach(id => {
-        const btn = document.getElementById(id);
-        if (btn) {
-            btn.addEventListener('click', () => showHelpModal('general'));
-        }
-    });
-    
-    // الصوت
-    const soundBtn = document.getElementById('toggleSound');
-    if (soundBtn) {
-        soundBtn.addEventListener('click', toggleSound);
-    }
-    
-    // الوضع الليلي
-    const themeBtn = document.getElementById('toggleTheme');
-    if (themeBtn) {
-        themeBtn.addEventListener('click', toggleTheme);
-    }
-    
-    // حول التطبيق
-    const aboutBtn = document.getElementById('showAbout');
-    if (aboutBtn) {
-        aboutBtn.addEventListener('click', showAboutModal);
-    }
-    
-    // الإشعارات
-    const closeTipBtn = document.getElementById('closeTip');
-    if (closeTipBtn) {
-        closeTipBtn.addEventListener('click', () => {
-            document.getElementById('floatingTip').style.display = 'none';
-        });
-    }
-}
-
-// === معالجة رفع الملفات ===
-async function handleFileUpload(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    const success = await loadFromFile(file);
-    if (success) {
-        renderCards();
-        showNotification(`📁 تم تحميل ${ITEMS.length} بطاقة بنجاح`, 'success');
-        showFloatingTip('💡 يمكنك الآن استخدام البطاقات الجديدة في الألعاب التعليمية');
-    } else {
-        showNotification('❌ خطأ في تحميل الملف. تأكد من تنسيق JSON', 'error');
-    }
-    
-    // إعادة تعيين المدخل
-    e.target.value = '';
-}
-
-// === حفظ البيانات إلى ملف ===
-function saveToFile() {
-    if (!ITEMS.length) {
-        showNotification('لا توجد بيانات لحفظها', 'warning');
-        return;
-    }
-    
-    const dataStr = JSON.stringify(ITEMS, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `بطاقات_${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    showNotification('💾 تم حفظ البيانات إلى ملف', 'success');
-}
-
-// === استخدام البيانات الافتراضية ===
-function useDefaultData() {
-    ITEMS = [...DEFAULTS];
-    saveItems();
-    renderCards();
-    showNotification('🔄 تم تحميل البيانات الافتراضية', 'success');
-    showFloatingTip('💡 يمكنك تعديل البطاقات أو إضافة بطاقات جديدة');
-}
-
-// === تحديث عدد البطاقات ===
-function updateCardsCount() {
-    if (elements.cardsCount) {
-        elements.cardsCount.textContent = ITEMS.length;
-    }
-}
-
-// === تحديث زر الصوت ===
-function updateSoundButton() {
-    const soundBtn = document.getElementById('toggleSound');
-    if (soundBtn) {
-        soundBtn.innerHTML = soundEnabled ? 
-            '<i class="fas fa-volume-up"></i> إيقاف الصوت' : 
-            '<i class="fas fa-volume-mute"></i> تشغيل الصوت';
-    }
-}
-
-// === تبديل الصوت ===
-function toggleSound() {
-    soundEnabled = !soundEnabled;
-    localStorage.setItem('soundEnabled', soundEnabled);
-    updateSoundButton();
-    playSound('click');
-    showNotification(soundEnabled ? '🔊 تم تشغيل الصوت' : '🔇 تم إيقاف الصوت', 'info');
-}
-
-// === تبديل الوضع الليلي ===
-function toggleTheme() {
-    darkMode = !darkMode;
-    localStorage.setItem('darkMode', darkMode);
-    
-    if (darkMode) {
-        document.body.classList.add('dark-mode');
-        document.getElementById('toggleTheme').innerHTML = '<i class="fas fa-sun"></i> الوضع النهاري';
-        showNotification('🌙 تم تفعيل الوضع الليلي', 'info');
-    } else {
-        document.body.classList.remove('dark-mode');
-        document.getElementById('toggleTheme').innerHTML = '<i class="fas fa-moon"></i> الوضع الليلي';
-        showNotification('☀️ تم تفعيل الوضع النهاري', 'info');
-    }
-    
-    playSound('click');
-}
-
-// === عرض معلومات البطاقة ===
-function showCardInfo(item) {
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay';
-    modal.innerHTML = `
-        <div class="modal" style="max-width: 500px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 style="margin: 0; color: #111827;">
-                    <i class="fas fa-info-circle"></i> معلومات البطاقة
-                </h2>
-                <button class="btn btn-subtle" id="closeCardInfo" style="padding: 8px 12px;">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            
-            <div style="text-align: center; margin-bottom: 25px;">
-                <img src="${getImgSrc(item)}" alt="${item.ar}" 
-                     style="max-width: 200px; max-height: 200px; object-fit: contain; border-radius: 12px; margin-bottom: 15px;" 
-                     onerror="this.src='assets/placeholder.png'; this.onerror=null;" />
-                <h3 style="margin: 0 0 10px 0; color: #111827;">${item.ar} / ${item.en}</h3>
-                <div style="color: #6B7280; font-size: 14px;">ID: ${item.id}</div>
-            </div>
-            
-            <div style="background: #F9FAFB; border-radius: 12px; padding: 20px; margin-bottom: 25px;">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                    <div>
-                        <div style="font-size: 12px; color: #6B7280; margin-bottom: 5px;">الفئة</div>
-                        <div style="font-weight: 600; color: #111827;">${item.category || 'عام'}</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 12px; color: #6B7280; margin-bottom: 5px;">المستوى</div>
-                        <div style="font-weight: 600; color: #111827;">
-                            ${item.difficulty ? ['سهل', 'متوسط', 'صعب'][item.difficulty - 1] : 'غير محدد'}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="modal-actions">
-                <button class="btn btn-primary" id="speakCardInfo">
-                    <i class="fas fa-volume-up"></i> نطق الكلمة
-                </button>
-                <button class="btn btn-subtle" id="closeCardInfo2">
-                    <i class="fas fa-check"></i> إغلاق
-                </button>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
-    
-    // أحداث الإغلاق
-    const closeBtns = ['closeCardInfo', 'closeCardInfo2'];
-    closeBtns.forEach(id => {
-        document.getElementById(id).addEventListener('click', () => {
-            modal.classList.add('fadeOut');
-            setTimeout(() => modal.remove(), 300);
-            playSound('click');
-        });
-    });
-    
-    // نطق الكلمة
-    document.getElementById('speakCardInfo').addEventListener('click', () => {
-        const language = elements.langSelect?.value || 'ar';
-        speakText(item[language] || item.ar || item.en, language);
-        playSound('click');
-    });
-    
-    // إغلاق بالنقر خارج النافذة
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            modal.classList.add('fadeOut');
-            setTimeout(() => modal.remove(), 300);
-            playSound('click');
-        }
-    });
-}
-
-// === لعبة المطابقة ===
-function initMatchGame() {
-    // سيتم تنفيذ هذا في المرحلة التالية
-    console.log('تهيئة لعبة المطابقة');
-}
-
-// === لعبة الحروف ===
-function initLettersGame() {
-    // سيتم تنفيذ هذا في المرحلة التالية
-    console.log('تهيئة لعبة الحروف');
-}
-
-// === الإشعارات ===
-function showNotification(message, type = 'info') {
-    const area = document.getElementById('notificationArea');
-    if (!area) return;
-    
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-    notification.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="flex: 1;">
-                <div style="font-weight: 600; margin-bottom: 4px; font-size: 14px;">
-                    ${getNotificationIcon(type)} ${message}
-                </div>
-            </div>
-            <button class="btn btn-subtle" style="padding: 4px 8px; font-size: 12px;" id="closeNotif">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-    `;
-    
-    area.appendChild(notification);
-    
-    // إغلاق الإشعار
-    notification.querySelector('#closeNotif').addEventListener('click', () => {
-        notification.classList.add('fadeOut');
-        setTimeout(() => notification.remove(), 300);
-    });
-    
-    // إزالة تلقائية بعد 5 ثوان
-    setTimeout(() => {
-        if (notification.parentNode) {
-            notification.classList.add('fadeOut');
-            setTimeout(() => notification.remove(), 300);
-        }
-    }, 5000);
-}
-
-function getNotificationIcon(type) {
-    const icons = {
-        success: '✅',
-        error: '❌',
-        warning: '⚠️',
-        info: 'ℹ️'
-    };
-    return icons[type] || 'ℹ️';
-}
-
-// === التلميحات العائمة ===
-function showFloatingTip(message) {
-    const tip = document.getElementById('floatingTip');
-    if (!tip) return;
-    
-    document.getElementById('tipContent').textContent = message;
-    tip.style.display = 'block';
-    
-    // إخفاء تلقائي بعد 10 ثوان
-    setTimeout(() => {
-        tip.style.display = 'none';
-    }, 10000);
-}
-
-// === النماذج المنبثقة ===
-function showStatsModal() {
-    const modal = document.getElementById('statsModal');
-    if (!modal) return;
-    
-    modal.classList.remove('hidden');
-    
-    // تحديث الإحصائيات
-    updateStatsModal();
-    
-    // أحداث الإغلاق
-    const closeBtns = ['closeStats', 'closeStats2'];
-    closeBtns.forEach(id => {
-        document.getElementById(id).addEventListener('click', () => {
-            modal.classList.add('hidden');
-            playSound('click');
-        });
-    });
-    
-    // تصدير الإحصائيات
-    document.getElementById('exportStats').addEventListener('click', exportStats);
-    
-    // مسح الإحصائيات
-    document.getElementById('clearStats').addEventListener('click', clearStats);
-}
-
-function updateStatsModal() {
-    try {
-        const stats = JSON.parse(localStorage.getItem('appStats') || '{}');
-        
-        // الإحصائيات الأساسية
-        document.getElementById('statCards').textContent = ITEMS.length;
-        document.getElementById('statPlays').textContent = stats.totalPlays || 0;
-        document.getElementById('statWins').textContent = stats.totalWins || 0;
-        
-        const time = stats.totalPlayTime || 0;
-        const hours = Math.floor(time / 3600);
-        const minutes = Math.floor((time % 3600) / 60);
-        document.getElementById('statTime').textContent = `${hours}:${minutes.toString().padStart(2, '0')}`;
-        
-        // أفضل البطاقات
-        updateTopCards(stats.cards || {});
-        
-        // النشاط اليومي
-        updateDailyActivity(stats.daily || {});
-    } catch (e) {
-        console.error('خطأ في تحديث إحصائيات النافذة:', e);
-    }
-}
-
-function updateTopCards(cardsData) {
-    const container = document.getElementById('topCardsList');
-    if (!container) return;
-    
-    const cards = Object.entries(cardsData)
-        .map(([id, data]) => ({ id, ...data }))
-        .sort((a, b) => (b.flips || 0) - (a.flips || 0))
-        .slice(0, 5);
-    
-    if (cards.length === 0) {
-        container.innerHTML = '<div style="text-align: center; color: #9CA3AF; padding: 20px;">لا توجد بيانات عن البطاقات</div>';
-        return;
-    }
-    
-    container.innerHTML = cards.map((card, index) => `
-        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px; border-bottom: 1px solid #E5E7EB; ${index === cards.length - 1 ? 'border-bottom: none;' : ''}">
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <div style="width: 30px; height: 30px; background: #F3F4F6; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #6B7280;">
-                    ${index + 1}
-                </div>
-                <div>
-                    <div style="font-weight: 600; font-size: 14px;">${card.id}</div>
-                    <div style="font-size: 12px; color: #9CA3AF;">${card.flips || 0} مرة</div>
-                </div>
-            </div>
-            <div style="color: #2563EB; font-weight: 600; font-size: 14px;">
-                ${card.flips || 0}
-            </div>
-        </div>
-    `).join('');
-}
-
-function updateDailyActivity(dailyData) {
-    const container = document.getElementById('dailyActivity');
-    if (!container) return;
-    
-    const today = new Date().toISOString().split('T')[0];
-    const todayData = dailyData[today];
-    
-    if (!todayData) {
-        container.innerHTML = '<div style="text-align: center;">لا يوجد نشاط اليوم</div>';
-        return;
-    }
-    
-    container.innerHTML = `
-        <div style="width: 100%;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
-                <div style="text-align: center;">
-                    <div style="font-size: 24px; font-weight: 700; color: #2563EB;">${todayData.cardFlips || 0}</div>
-                    <div style="font-size: 12px; color: #6B7280;">قلب بطاقة</div>
-                </div>
-                <div style="text-align: center;">
-                    <div style="font-size: 24px; font-weight: 700; color: #10B981;">${todayData.speeches || 0}</div>
-                    <div style="font-size: 12px; color: #6B7280;">نطق</div>
-                </div>
-                <div style="text-align: center;">
-                    <div style="font-size: 24px; font-weight: 700; color: #F59E0B;">${todayData.games || 0}</div>
-                    <div style="font-size: 12px; color: #6B7280;">لعبة</div>
-                </div>
-            </div>
-            <div style="font-size: 12px; color: #9CA3AF; text-align: center;">
-                نشاط اليوم ${new Date().toLocaleDateString('ar-EG')}
-            </div>
-        </div>
-    `;
-}
-
-function exportStats() {
-    try {
-        const stats = JSON.parse(localStorage.getItem('appStats') || '{}');
-        const data = {
-            ...stats,
-            itemsCount: ITEMS.length,
-            exportDate: new Date().toISOString()
-        };
-        
-        const dataStr = JSON.stringify(data, null, 2);
-        const blob = new Blob([dataStr], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `إحصائيات_${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        showNotification('📊 تم تصدير الإحصائيات', 'success');
-        playSound('success');
-    } catch (e) {
-        console.error('خطأ في تصدير الإحصائيات:', e);
-        showNotification('❌ خطأ في تصدير الإحصائيات', 'error');
-    }
-}
-
-function clearStats() {
-    if (!confirm('هل أنت متأكد من مسح جميع الإحصائيات؟ لا يمكن التراجع عن هذا الإجراء.')) {
-        return;
-    }
-    
-    try {
-        localStorage.removeItem('appStats');
-        updateStatsModal();
-        showNotification('🗑️ تم مسح جميع الإحصائيات', 'success');
-        playSound('success');
-    } catch (e) {
-        console.error('خطأ في مسح الإحصائيات:', e);
-        showNotification('❌ خطأ في مسح الإحصائيات', 'error');
-    }
-}
-
-function showHelpModal(context = 'general') {
-    const modal = document.getElementById('helpModal');
-    if (!modal) return;
-    
-    modal.classList.remove('hidden');
-    
-    // أحداث الإغلاق
-    const closeBtns = ['closeHelp', 'closeHelp2'];
-    closeBtns.forEach(id => {
-        document.getElementById(id).addEventListener('click', () => {
-            modal.classList.add('hidden');
-            playSound('click');
-        });
-    });
-}
-
-function showAboutModal() {
-    const modal = document.getElementById('aboutModal');
-    if (!modal) return;
-    
-    modal.classList.remove('hidden');
-    
-    // أحداث الإغلاق
-    const closeBtns = ['closeAbout', 'closeAbout2'];
-    closeBtns.forEach(id => {
-        document.getElementById(id).addEventListener('click', () => {
-            modal.classList.add('hidden');
-            playSound('click');
-        });
-    });
-}
-
-// === تهيئة عند تحميل الصفحة ===
-document.addEventListener('DOMContentLoaded', () => {
-    // بدء النظام بعد تحميل الصفحة
-    setTimeout(initSystem, 500);
-    
-    // تلميح ترحيبي
-    setTimeout(() => {
-        showFloatingTip('مرحبًا! يمكنك النقر على أي بطاقة لقلبها ومعرفة اسمها');
-    }, 2000);
+langSelect.addEventListener('change', ()=>{ 
+  render(); 
+  if (!matchMode.classList.contains('hidden')) renderMatch(); 
+  if (!lettersMode.classList.contains('hidden')) initLetters(); 
+  playSound('click');
+});
+toggleNamesBtn.addEventListener('click', ()=>{ 
+  showNames=!showNames; 
+  render();
+  playSound('click');
+});
+shuffleBtn.addEventListener('click', shuffle);
+resetBtn.addEventListener('click', reset);
+statsBtn.addEventListener('click', ()=>{ 
+  showStatsModal();
+  playSound('click');
+});
+helpBtn.addEventListener('click', ()=>{ 
+  showHelpModal();
+  playSound('click');
 });
 
-// === تصدير الدوال للاستخدام العالمي ===
-window.app = {
-    initSystem,
-    renderCards,
-    speakText,
-    playSound,
-    showNotification,
-    saveToFile,
-    useDefaultData
-};
+// ===== Navigation (3-button header) =====
+const homeBtn = document.getElementById('homeBtn');
+const testsBtn = document.getElementById('testsBtn');
+const cardsMode=document.getElementById('cardsMode');
+const testsHub = document.getElementById('testsHub');
+const matchMode=document.getElementById('matchMode');
+const lettersMode=document.getElementById('lettersMode');
+
+function showSection(section){
+  cardsMode.classList.add('hidden');
+  testsHub.classList.add('hidden');
+  matchMode.classList.add('hidden');
+  lettersMode.classList.add('hidden');
+  section.classList.remove('hidden');
+}
+
+homeBtn && homeBtn.addEventListener('click', ()=>{ 
+  showSection(cardsMode); 
+  render();
+  playSound('click');
+});
+testsBtn && testsBtn.addEventListener('click', ()=>{ 
+  showSection(testsHub); 
+  playSound('click');
+});
+
+// Tests hub buttons
+const goMatch = document.getElementById('goMatch');
+const goLetters = document.getElementById('goLetters');
+
+goMatch && goMatch.addEventListener('click', ()=>{ 
+  showSection(matchMode); 
+  animateOnce(matchMode,'fadeInUp'); 
+  renderMatch(); 
+  playSound('click');
+});
+goLetters && goLetters.addEventListener('click', ()=>{ 
+  showSection(lettersMode); 
+  animateOnce(lettersMode,'fadeInUp'); 
+  initLetters(); 
+  playSound('click');
+});
+
+// Match Mode logic
+const matchImages=document.getElementById('matchImages');
+const matchWords=document.getElementById('matchWords');
+const matchScore=document.getElementById('matchScore');
+const matchShuffle=document.getElementById('matchShuffle');
+const matchReset=document.getElementById('matchReset');
+const matchCheck=document.getElementById('matchCheck');
+
+let currentLevel=1; 
+const levelConfig={1:{count:4,duration:60},2:{count:7,duration:45},3:{count:10,duration:30}};
+const levelSelect=document.getElementById('levelSelect');
+const levelLabel=document.getElementById('levelLabel');
+const timerLabel=document.getElementById('matchTimer');
+const btnStart=document.getElementById('timerStart');
+const btnPause=document.getElementById('timerPause');
+let timerId=null; 
+let timeLeft=levelConfig[currentLevel].duration;
+
+function getLevelItems(){ 
+  return [...ITEMS].sort(()=>Math.random()-0.5).slice(0, levelConfig[currentLevel].count); 
+}
+
+function formatTime(s){ 
+  const m=Math.floor(s/60), sec=s%60; 
+  return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`; 
+}
+
+function updateTimerDisplay(){ 
+  timerLabel.textContent=`⏱️ ${formatTime(timeLeft)}`; 
+}
+
+function startTimer(){ 
+  if (timerId) return; 
+  timerId=setInterval(()=>{ 
+    timeLeft=Math.max(0,timeLeft-1); 
+    updateTimerDisplay(); 
+    if(timeLeft===0){ 
+      pauseTimer(); 
+      showToast((langSelect.value==='ar')?'انتهى الوقت!':'Time is up!');
+      playSound('timeout');
+      updateStats('matchTimeout');
+    } 
+  },1000); 
+}
+
+function pauseTimer(){ 
+  if(timerId){ 
+    clearInterval(timerId); 
+    timerId=null; 
+  } 
+}
+
+function resetTimer(){ 
+  pauseTimer(); 
+  timeLeft=levelConfig[currentLevel].duration; 
+  updateTimerDisplay(); 
+}
+
+btnStart.addEventListener('click', ()=>{ 
+  startTimer(); 
+  playSound('click');
+}); 
+btnPause.addEventListener('click', ()=>{ 
+  pauseTimer(); 
+  playSound('click');
+});
+
+levelSelect.addEventListener('change', ()=>{ 
+  currentLevel=parseInt(levelSelect.value,10); 
+  resetTimer(); 
+  if(!matchMode.classList.contains('hidden')) renderMatch(); 
+  playSound('click');
+});
+langSelect.addEventListener('change', ()=>{ 
+  levelLabel.textContent=(langSelect.value==='ar')?'المستوى:':'Level:'; 
+  btnStart.textContent=(langSelect.value==='ar')?'بدء':'Start'; 
+  btnPause.textContent=(langSelect.value==='ar')?'إيقاف':'Pause'; 
+});
+
+let assignments={}; 
+let matchTotal=0;
+
+function renderMatch(){ 
+  matchImages.innerHTML=''; 
+  matchWords.innerHTML=''; 
+  assignments={}; 
+  const subset=getLevelItems(); 
+  matchTotal=subset.length; 
+  
+  subset.forEach((item,idx)=>{ 
+    const slot=document.createElement('div'); 
+    slot.className='slot'; 
+    slot.dataset.slotId='slot_'+idx; 
+    slot.dataset.itemId=item.id; 
+    
+    const img=document.createElement('img'); 
+    img.className='figure'; 
+    img.src=getImgSrc(item); 
+    img.alt=item[langSelect.value]; 
+    
+    const label=document.createElement('div'); 
+    label.className='drop-label'; 
+    label.textContent=(langSelect.value==='ar')?'اسحب الكلمة هنا':'Drag the word here'; 
+    
+    slot.addEventListener('dragover', e=>{ 
+      e.preventDefault(); 
+      slot.classList.add('dragover'); 
+    }); 
+    
+    slot.addEventListener('dragleave', ()=> slot.classList.remove('dragover')); 
+    
+    slot.addEventListener('drop', e=>{ 
+      e.preventDefault(); 
+      slot.classList.remove('dragover'); 
+      const droppedId=e.dataTransfer.getData('text/plain'); 
+      if(!droppedId) return; 
+      const existing=slot.querySelector('.chip'); 
+      if (existing) matchWords.appendChild(existing); 
+      const chip=document.getElementById('chip_'+droppedId); 
+      if (chip){ 
+        slot.appendChild(chip); 
+        chip.classList.remove('dragging'); 
+        assignments[slot.dataset.slotId]=droppedId; 
+        updateScore(matchTotal); 
+        playSound('drop');
+      } 
+    }); 
+    
+    slot.appendChild(img); 
+    slot.appendChild(label); 
+    matchImages.appendChild(slot); 
+  }); 
+  
+  const words=[...subset].sort(()=>Math.random()-0.5); 
+  words.forEach(item=>{ 
+    const chip=document.createElement('div'); 
+    chip.className='chip'; 
+    chip.id='chip_'+item.id; 
+    chip.textContent=item[langSelect.value]; 
+    chip.draggable=true; 
+    
+    chip.addEventListener('dragstart', e=>{ 
+      chip.classList.add('dragging'); 
+      e.dataTransfer.setData('text/plain', item.id); 
+    }); 
+    
+    chip.addEventListener('dragend', ()=> chip.classList.remove('dragging')); 
+    matchWords.appendChild(chip); 
+  }); 
+  
+  updateScore(matchTotal); 
+  resetTimer();
+}
+
+function updateScore(total){ 
+  let correct=0; 
+  for(const slot of matchImages.querySelectorAll('.slot')){ 
+    if(slot.classList.contains('correct')) correct++; 
+    else { 
+      const slotId=slot.dataset.slotId; 
+      const expected=slot.dataset.itemId; 
+      const assigned=assignments[slotId]; 
+      if(assigned){ 
+        if(assigned===expected){ 
+          correct++; 
+          slot.classList.add('correct'); 
+          slot.classList.remove('incorrect'); 
+        } else { 
+          slot.classList.add('incorrect'); 
+          slot.classList.remove('correct'); 
+        } 
+      } else { 
+        slot.classList.remove('correct','incorrect'); 
+      } 
+    } 
+  } 
+  matchScore.textContent=(langSelect.value==='ar')?`النتيجة: ${correct}/${total}`:`Score: ${correct}/${total}`; 
+}
+
+matchShuffle.addEventListener('click', ()=>{ 
+  const chips=Array.from(matchWords.children); 
+  chips.sort(()=>Math.random()-0.5).forEach(c=> matchWords.appendChild(c)); 
+  playSound('click');
+});
+
+matchReset.addEventListener('click', ()=>{ 
+  for(const slot of matchImages.querySelectorAll('.slot')){ 
+    const chip=slot.querySelector('.chip'); 
+    if(chip) matchWords.appendChild(chip); 
+  } 
+  assignments={}; 
+  updateScore(matchTotal); 
+  resetTimer(); 
+  playSound('click');
+});
+
+matchCheck.addEventListener('click', ()=>{ 
+  updateScore(matchTotal); 
+  const total=matchTotal; 
+  let correct=0; 
+  for(const slot of matchImages.querySelectorAll('.slot')){ 
+    if(slot.classList.contains('correct')) correct++; 
+  } 
+  if(correct===total){ 
+    const dur=levelConfig[currentLevel].duration; 
+    const ratio=timeLeft/dur; 
+    let stars=1; 
+    if(ratio>=0.66) stars=3; 
+    else if(ratio>=0.33) stars=2; 
+    showReward(stars); 
+    updateStats('matchCompleted');
+    playSound('success');
+  } else {
+    playSound('error');
+  }
+});
+
+function showToast(message){ 
+  const t=document.createElement('div'); 
+  t.className='toast'; 
+  t.textContent=message; 
+  document.body.appendChild(t); 
+  setTimeout(()=> t.remove(), 1800); 
+}
+
+function showReward(stars){ 
+  const overlay=document.createElement('div'); 
+  overlay.className='reward animated fadeIn'; 
+  const card=document.createElement('div'); 
+  card.className='card animated bounceIn'; 
+  const title=document.createElement('h3'); 
+  title.textContent=(langSelect.value==='ar')?'أحسنت!':'Great job!'; 
+  const starBox=document.createElement('div'); 
+  starBox.className='stars'; 
+  starBox.textContent='★'.repeat(stars)+'☆'.repeat(3-stars); 
+  const btn=document.createElement('button'); 
+  btn.className='btn btn-primary'; 
+  btn.textContent=(langSelect.value==='ar')?'متابعة':'Continue'; 
+  btn.addEventListener('click', ()=>{ 
+    overlay.classList.add('animated','fadeOutUp'); 
+    setTimeout(()=> overlay.remove(), 400); 
+    playSound('click');
+  }); 
+  card.appendChild(title); 
+  card.appendChild(starBox); 
+  card.appendChild(btn); 
+  overlay.appendChild(card); 
+  document.body.appendChild(overlay); 
+}
+
+// Letters Mode
+const lettersFigure=document.getElementById('lettersFigure');
+const lettersSlots=document.getElementById('lettersSlots');
+const lettersBank=document.getElementById('lettersBank');
+const lettersScore=document.getElementById('lettersScore');
+const lettersSelect=document.getElementById('lettersSelect');
+const lettersNewBtn=document.getElementById('lettersNew');
+const lettersResetBtn=document.getElementById('lettersReset');
+const lettersCheckBtn=document.getElementById('lettersCheck');
+
+let currentLettersItem=null; 
+let targetWord=''; 
+let assembled=[];
+
+function initLetters(){ 
+  pickRandomLettersItem(); 
+  updateStats('lettersStarted');
+}
+
+function pickRandomLettersItem(){ 
+  currentLettersItem=ITEMS[Math.floor(Math.random()*ITEMS.length)]; 
+  buildLettersRound(); 
+}
+
+lettersNewBtn.addEventListener('click', ()=>{ 
+  pickRandomLettersItem(); 
+  playSound('click');
+});
+
+lettersResetBtn.addEventListener('click', ()=>{ 
+  buildLettersRound(); 
+  playSound('click');
+});
+
+lettersCheckBtn.addEventListener('click', ()=>{ 
+  const guess=assembled.join(''); 
+  const target=targetWord; 
+  const correct=(guess===target); 
+  lettersSlots.classList.remove('correct-word','incorrect-word'); 
+  lettersSlots.classList.add(correct? 'correct-word':'incorrect-word'); 
+  const msg=(langSelect.value==='ar')? (correct?'إجابة صحيحة!':'إجابة غير صحيحة'):(correct?'Correct!':'Try again'); 
+  showToast(msg); 
+  if(correct) {
+    updateStats('lettersCompleted');
+    playSound('success');
+  } else {
+    playSound('error');
+  }
+});
+
+function normalizeWord(raw){ 
+  return raw.replace(/\s+/g,'').replace(/[ـ؟،,.;:!؟،]/g,''); 
+}
+
+function buildLettersRound(){ 
+  const wordRaw=currentLettersItem[langSelect.value]; 
+  targetWord=normalizeWord(wordRaw); 
+  assembled=Array(targetWord.length).fill(''); 
+  lettersFigure.src=getImgSrc(currentLettersItem); 
+  lettersFigure.alt=wordRaw; 
+  lettersSlots.innerHTML=''; 
+  
+  for(let i=0;i<targetWord.length;i++){ 
+    const slot=document.createElement('div'); 
+    slot.className='slot-letter'; 
+    slot.dataset.index=i; 
+    
+    slot.addEventListener('dragover', e=>{ 
+      e.preventDefault(); 
+    }); 
+    
+    slot.addEventListener('drop', e=>{ 
+      e.preventDefault(); 
+      const ch=e.dataTransfer.getData('text/plain'); 
+      placeLetter(i, ch); 
+    }); 
+    
+    slot.addEventListener('click', ()=>{ 
+      if (assembled[i]){ 
+        const chip=createChip(assembled[i]); 
+        lettersBank.appendChild(chip); 
+        assembled[i]=''; 
+        slot.textContent=''; 
+        slot.classList.remove('filled'); 
+        updateLettersScore(); 
+        playSound('click');
+      } 
+    }); 
+    lettersSlots.appendChild(slot); 
+  } 
+  
+  lettersBank.innerHTML=''; 
+  const chars=Array.from(targetWord); 
+  const distractors=buildDistractors(chars); 
+  const bank=shuffleArray(chars.concat(distractors)); 
+  bank.forEach(ch=> lettersBank.appendChild(createChip(ch))); 
+  updateLettersScore(); 
+}
+
+function buildDistractors(chars){ 
+  const alphabet=(langSelect.value==='ar')?'ابتثجحخدذرزسشصضطظعغفقكلمنهوي':'abcdefghijklmnopqrstuvwxyz'; 
+  const need=Math.max(3, Math.ceil(chars.length/2)); 
+  const pool=Array.from(alphabet).filter(c=> !chars.includes(c)); 
+  return shuffleArray(pool).slice(0, need); 
+}
+
+function createChip(ch){ 
+  const chip=document.createElement('div'); 
+  chip.className='chip-letter'; 
+  chip.textContent=ch; 
+  chip.draggable=true; 
+  
+  chip.addEventListener('dragstart', e=>{ 
+    chip.classList.add('dragging'); 
+    e.dataTransfer.setData('text/plain', ch); 
+  }); 
+  
+  chip.addEventListener('dragend', ()=> chip.classList.remove('dragging')); 
+  
+  chip.addEventListener('click', ()=>{ 
+    const idx=assembled.indexOf(''); 
+    if (idx!==-1){ 
+      placeLetter(idx, ch); 
+      chip.remove(); 
+      playSound('click');
+    } 
+  }); 
+  return chip; 
+}
+
+function placeLetter(i, ch){ 
+  if (!assembled[i] || assembled[i]===ch){ 
+    assembled[i]=ch; 
+    const slot=lettersSlots.children[i]; 
+    slot.textContent=ch; 
+    slot.classList.add('filled'); 
+    updateLettersScore(); 
+    playSound('drop');
+  } else { 
+    const old=assembled[i]; 
+    assembled[i]=ch; 
+    const slot=lettersSlots.children[i]; 
+    slot.textContent=ch; 
+    slot.classList.add('filled'); 
+    lettersBank.appendChild(createChip(old)); 
+    updateLettersScore(); 
+    playSound('click');
+  } 
+}
+
+function updateLettersScore(){ 
+  const total=targetWord.length; 
+  const filled=assembled.filter(c=> c && c.length>0).length; 
+  lettersScore.textContent=`${filled} / ${total}`; 
+}
+
+function shuffleArray(a){ 
+  return a.map(x=>({v:x,r:Math.random()})).sort((p,q)=>p.r-q.r).map(o=>o.v); 
+}
+
+// ===== الإحصائيات =====
+function showStatsModal() {
+  const modal = document.getElementById('statsModal');
+  const content = document.getElementById('statsContent');
+  
+  const stats = getStats();
+  const totalTime = Math.floor((stats.lastSession - stats.firstSession) / 1000 / 60);
+  
+  let html = `
+    <div class="stats-card">
+      <h3>📈 نظرة عامة</h3>
+      <div class="stats-row">
+        <span>أول استخدام:</span>
+        <span class="stats-value">${new Date(stats.firstSession).toLocaleDateString('ar-SA')}</span>
+      </div>
+      <div class="stats-row">
+        <span>آخر استخدام:</span>
+        <span class="stats-value">${new Date(stats.lastSession).toLocaleDateString('ar-SA')}</span>
+      </div>
+      <div class="stats-row">
+        <span>إجمالي وقت الاستخدام:</span>
+        <span class="stats-value">${totalTime} دقيقة</span>
+      </div>
+    </div>
+    
+    <div class="stats-card">
+      <h3>🎴 البطاقات</h3>
+      <div class="stats-row">
+        <span>البطاقات المقروءة:</span>
+        <span class="stats-value">${stats.cardsFlipped}</span>
+      </div>
+      <div class="stats-row">
+        <span>البطاقات المنطوقة:</span>
+        <span class="stats-value">${stats.cardsSpoken}</span>
+      </div>
+      <div class="stats-row">
+        <span>مرات الترتيب العشوائي:</span>
+        <span class="stats-value">${stats.cardsShuffled}</span>
+      </div>
+    </div>
+    
+    <div class="stats-card">
+      <h3>🎯 الاختبارات</h3>
+      <div class="stats-row">
+        <span>اختبارات المطابقة المكتملة:</span>
+        <span class="stats-value">${stats.matchCompleted}</span>
+      </div>
+      <div class="stats-row">
+        <span>مرات انتهاء الوقت:</span>
+        <span class="stats-value">${stats.matchTimeout}</span>
+      </div>
+      <div class="stats-row">
+        <span>اختبارات الحروف المكتملة:</span>
+        <span class="stats-value">${stats.lettersCompleted}</span>
+      </div>
+      <div class="stats-row">
+        <span>اختبارات الحروف المبدوءة:</span>
+        <span class="stats-value">${stats.lettersStarted}</span>
+      </div>
+    </div>
+  `;
+  
+  content.innerHTML = html;
+  modal.classList.remove('hidden');
+  
+  // إغلاق النافذة
+  document.getElementById('closeStats').addEventListener('click', () => {
+    modal.classList.add('hidden');
+    playSound('click');
+  });
+  
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.classList.add('hidden');
+    }
+  });
+}
+
+// ===== المساعدة =====
+function showHelpModal() {
+  const modal = document.getElementById('helpModal');
+  const content = document.getElementById('helpContent');
+  
+  let html = `
+    <div class="help-section">
+      <h3>🎴 البطاقات التفاعلية</h3>
+      <div class="help-item">
+        <strong>النقر على البطاقة:</strong> تقليب البطاقة لرؤية الكلمة باللغتين
+      </div>
+      <div class="help-item">
+        <strong>زر 🔊:</strong> نطق الكلمة باللغة المحددة
+      </div>
+      <div class="help-item">
+        <strong>زر إظهار/إخفاء الأسماء:</strong> إخفاء أو إظهار أسماء البطاقات
+      </div>
+    </div>
+    
+    <div class="help-section">
+      <h3>🎯 اختبار المطابقة</h3>
+      <div class="help-item">
+        <strong>الهدف:</strong> سحب الكلمات إلى الصور المناسبة
+      </div>
+      <div class="help-item">
+        <strong>المستويات:</strong> 3 مستويات مع زيادة الصعوبة
+      </div>
+      <div class="help-item">
+        <strong>المؤقت:</strong> يحسب الوقت المتبقي لكل اختبار
+      </div>
+    </div>
+    
+    <div class="help-section">
+      <h3>🔤 اختبار الحروف</h3>
+      <div class="help-item">
+        <strong>الهدف:</strong> تكوين الكلمة الصحيحة من الحروف المتاحة
+      </div>
+      <div class="help-item">
+        <strong>السحب والإفلات:</strong> سحب الحروف إلى المواضع المناسبة
+      </div>
+      <div class="help-item">
+        <strong>النقر على الحرف:</strong> إزالته من الموضع وإعادته إلى البنك
+      </div>
+    </div>
+  `;
+  
+  content.innerHTML = html;
+  modal.classList.remove('hidden');
+  
+  // إغلاق النافذة
+  document.getElementById('closeHelp').addEventListener('click', () => {
+    modal.classList.add('hidden');
+    playSound('click');
+  });
+  
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.classList.add('hidden');
+    }
+  });
+}
+
+// تحديث ملخص الإحصائيات في التذييل
+function updateStatsSummary() {
+  const stats = getStats();
+  const summaryEl = document.getElementById('statsSummary');
+  if (summaryEl) {
+    summaryEl.innerHTML = `
+      📊 الإحصائيات: ${stats.cardsFlipped} بطاقة مقلوبة • ${stats.matchCompleted} اختبار مكتمل • ${stats.lettersCompleted} كلمة مكونة
+    `;
+  }
+}
+
+// Init default
+showSection(cardsMode); 
+render(); 
+updateTimerDisplay();
+updateStatsSummary();
+
+// تحديث الإحصائيات عند تحميل الصفحة
+updateStats('sessionStart');
