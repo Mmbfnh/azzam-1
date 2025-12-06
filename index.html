@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>بطاقات تفاعلية - تطوير شامل</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&family=Nunito:wght@600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="bootstrap.css" />
+  <link rel="stylesheet" href="animate.css" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <!-- شريط التحميل -->
+  <div id="loadingScreen" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+    <div class="logo-spinner" style="width: 80px; height: 80px; margin-bottom: 20px;">
+      <div style="width: 100%; height: 100%; border: 5px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+    </div>
+    <h2 style="margin: 0; font-size: 24px;">البطاقات التفاعلية</h2>
+    <p style="opacity: 0.8; margin-top: 10px;">جاري تحميل التطبيق...</p>
+  </div>
+
+  <!-- الواجهة الرئيسية -->
+  <div id="mainContent" style="display: none;">
+    <header class="topbar animated fadeInDown">
+      <div style="display: flex; align-items: center; gap: 15px;">
+        <div class="logo" style="width: 40px; height: 40px; background: linear-gradient(135deg, #2563EB 0%, #1E40AF 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">ب</div>
+        <h1>البطاقات التفاعلية</h1>
+      </div>
+      <div class="controls">
+        <a class="btn btn-outline" href="login.html" id="adminBtn" aria-label="لوحة التحكم">
+          <i class="fas fa-cogs"></i> لوحة التحكم
+        </a>
+        <button id="homeBtn" class="btn btn-subtle" aria-label="الشاشة الرئيسية">
+          <i class="fas fa-home"></i> الرئيسية
+        </button>
+        <button id="testsBtn" class="btn btn-primary" aria-label="الاختبارات">
+          <i class="fas fa-gamepad"></i> الألعاب
+        </button>
+        <button id="helpBtnMain" class="btn btn-subtle" aria-label="مساعدة">
+          <i class="fas fa-question-circle"></i> مساعدة
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <!-- قسم البطاقات -->
+      <section id="cardsMode">
+        <div class="cards-toolbar">
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <label class="toggle">
+              <span>اللغة:</span>
+              <select id="langSelect">
+                <option value="ar">العربية 🇸🇦</option>
+                <option value="en">English 🇬🇧</option>
+              </select>
+            </label>
+            <div class="btn-group">
+              <button id="toggleNames" class="btn btn-subtle">
+                <i class="fas fa-eye"></i> إظهار/إخفاء
+              </button>
+              <button id="shuffleBtn" class="btn btn-subtle">
+                <i class="fas fa-random"></i> عشوائي
+              </button>
+              <button id="resetBtn" class="btn btn-subtle">
+                <i class="fas fa-sync-alt"></i> إعادة
+              </button>
+            </div>
+          </div>
+          
+          <div style="display: flex; gap: 10px;">
+            <label class="btn btn-primary" style="cursor: pointer;">
+              <i class="fas fa-upload"></i> رفع ملف البيانات
+              <input type="file" id="fileUpload" accept=".json" style="display: none;">
+            </label>
+            <button id="saveFileBtn" class="btn btn-success">
+              <i class="fas fa-download"></i> حفظ البيانات
+            </button>
+            <button id="useDefaultsBtn" class="btn btn-outline">
+              <i class="fas fa-database"></i> البيانات الافتراضية
+            </button>
+          </div>
+        </div>
+        
+        <div id="cardsGrid" class="grid"></div>
+        
+        <!-- إحصائيات سريعة -->
+        <div class="quick-stats" style="background: #F9FAFB; padding: 15px; border-radius: 12px; margin: 20px; border: 1px solid #E5E7EB;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; gap: 20px;">
+              <div>
+                <div style="font-size: 12px; color: #6B7280;">عدد البطاقات</div>
+                <div id="cardsCount" style="font-size: 24px; font-weight: 700; color: #2563EB;">0</div>
+              </div>
+              <div>
+                <div style="font-size: 12px; color: #6B7280;">المستوى</div>
+                <div style="font-size: 24px; font-weight: 700; color: #10B981;">سهل</div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+              <button id="showStats" class="btn btn-subtle" style="font-size: 14px;">
+                <i class="fas fa-chart-bar"></i> الإحصائيات
+              </button>
+              <button id="quickHelp" class="btn btn-subtle" style="font-size: 14px;">
+                <i class="fas fa-question"></i> كيف أستخدم؟
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- مركز الألعاب -->
+      <section id="testsHub" class="hidden">
+        <div class="container" style="padding: 40px 20px; text-align: center;">
+          <h2 style="margin-bottom: 30px; color: #111827;">🎮 مركز الألعاب التعليمية</h2>
+          <p style="color: #6B7280; margin-bottom: 40px; max-width: 600px; margin-left: auto; margin-right: auto;">اختر لعبة لتطوير مهاراتك في التعلم</p>
+          
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; max-width: 900px; margin: 0 auto;">
+            <div class="game-card" style="background: white; border-radius: 20px; padding: 30px; border: 1px solid #E5E7EB; box-shadow: 0 10px 30px rgba(0,0,0,0.08); transition: transform 0.3s ease;">
+              <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 32px; color: white;">🎴</div>
+              <h3 style="margin: 0 0 10px 0; color: #111827;">بطاقات التعلم</h3>
+              <p style="color: #6B7280; margin-bottom: 20px;">تعلم المفردات بطريقة تفاعلية مع الصوت والصور</p>
+              <button id="goCards" class="btn btn-primary" style="width: 100%;">
+                <i class="fas fa-play"></i> بدء التعلم
+              </button>
+            </div>
+            
+            <div class="game-card" style="background: white; border-radius: 20px; padding: 30px; border: 1px solid #E5E7EB; box-shadow: 0 10px 30px rgba(0,0,0,0.08); transition: transform 0.3s ease;">
+              <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #10B981 0%, #059669 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 32px; color: white;">🧩</div>
+              <h3 style="margin: 0 0 10px 0; color: #111827;">لعبة المطابقة</h3>
+              <p style="color: #6B7280; margin-bottom: 20px;">اطابق الصور مع الكلمات في وقت محدد</p>
+              <button id="goMatch" class="btn btn-success" style="width: 100%;">
+                <i class="fas fa-play"></i> بدء اللعبة
+              </button>
+            </div>
+            
+            <div class="game-card" style="background: white; border-radius: 20px; padding: 30px; border: 1px solid #E5E7EB; box-shadow: 0 10px 30px rgba(0,0,0,0.08); transition: transform 0.3s ease;">
+              <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 32px; color: white;">🔤</div>
+              <h3 style="margin: 0 0 10px 0; color: #111827;">لعبة الحروف</h3>
+              <p style="color: #6B7280; margin-bottom: 20px;">رتب الحروف لتكوين الكلمات الصحيحة</p>
+              <button id="goLetters" class="btn btn-warning" style="width: 100%; background: #F59E0B; color: white;">
+                <i class="fas fa-play"></i> بدء اللعبة
+              </button>
+            </div>
+          </div>
+          
+          <div style="margin-top: 40px; padding-top: 30px; border-top: 1px solid #E5E7EB;">
+            <h3 style="color: #111827; margin-bottom: 15px;">📊 إحصائياتك</h3>
+            <div style="display: flex; justify-content: center; gap: 30px; flex-wrap: wrap;">
+              <div style="text-align: center;">
+                <div style="font-size: 32px; font-weight: 700; color: #2563EB;" id="totalPlays">0</div>
+                <div style="color: #6B7280; font-size: 14px;">مرات اللعب</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 32px; font-weight: 700; color: #10B981;" id="totalWins">0</div>
+                <div style="color: #6B7280; font-size: 14px;">مرات الفوز</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 32px; font-weight: 700; color: #F59E0B;" id="bestScore">0</div>
+                <div style="color: #6B7280; font-size: 14px;">أفضل نتيجة</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 32px; font-weight: 700; color: #8B5CF6;" id="playTime">0:00</div>
+                <div style="color: #6B7280; font-size: 14px;">وقت اللعب</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- وضع المطابقة -->
+      <section id="matchMode" class="hidden">
+        <div class="match-header" style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: white; padding: 20px; border-radius: 0 0 20px 20px;">
+          <div class="container">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+              <div>
+                <h2 style="margin: 0; display: flex; align-items: center; gap: 10px;">
+                  <i class="fas fa-puzzle-piece"></i> لعبة المطابقة
+                </h2>
+                <p style="margin: 5px 0 0 0; opacity: 0.9;">اسحب الكلمات إلى الصور المناسبة!</p>
+              </div>
+              <div style="display: flex; gap: 10px;">
+                <button id="backToGames" class="btn" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">
+                  <i class="fas fa-arrow-right"></i> العودة
+                </button>
+                <button id="matchHelp" class="btn" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">
+                  <i class="fas fa-question-circle"></i> مساعدة
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="container" style="margin-top: 30px;">
+          <div class="row match-toolbar">
+            <div class="col-sm-8 match-left">
+              <div class="score-board" style="display: flex; gap: 30px; align-items: center;">
+                <div>
+                  <div style="font-size: 14px; color: #6B7280;">النتيجة</div>
+                  <div id="matchScore" style="font-size: 32px; font-weight: 700; color: #111827;">0/0</div>
+                </div>
+                <div>
+                  <div style="font-size: 14px; color: #6B7280;">الوقت</div>
+                  <div id="matchTimer" style="font-size: 32px; font-weight: 700; color: #F59E0B;">01:00</div>
+                </div>
+                <div>
+                  <div style="font-size: 14px; color: #6B7280;">المستوى</div>
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <select id="levelSelect" style="padding: 8px 12px; border: 2px solid #E5E7EB; border-radius: 10px; font-size: 16px; font-weight: 600; color: #111827; background: white;">
+                      <option value="1">سهل ⭐</option>
+                      <option value="2">متوسط ⭐⭐</option>
+                      <option value="3">صعب ⭐⭐⭐</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-sm-4 match-actions text-right">
+              <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button id="timerStart" class="btn btn-success">
+                  <i class="fas fa-play"></i> بدء
+                </button>
+                <button id="timerPause" class="btn btn-outline">
+                  <i class="fas fa-pause"></i> إيقاف
+                </button>
+                <button id="matchReset" class="btn btn-subtle">
+                  <i class="fas fa-redo"></i> إعادة
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <div class="row match-layout">
+            <div class="col-sm-8">
+              <div class="match-area" style="background: #F9FAFB; border-radius: 20px; padding: 25px; border: 2px dashed #E5E7EB; min-height: 500px;">
+                <h3 style="margin-top: 0; margin-bottom: 20px; color: #111827; display: flex; align-items: center; gap: 10px;">
+                  <i class="fas fa-images"></i> الصور
+                </h3>
+                <div id="matchImages" class="match-images"></div>
+              </div>
+            </div>
+            <div class="col-sm-4">
+              <div class="words-area" style="background: white; border-radius: 20px; padding: 25px; border: 2px solid #E5E7EB; box-shadow: 0 10px 30px rgba(0,0,0,0.05); min-height: 500px;">
+                <h3 style="margin-top: 0; margin-bottom: 20px; color: #111827; display: flex; align-items: center; gap: 10px;">
+                  <i class="fas fa-font"></i> الكلمات
+                </h3>
+                <div id="matchWords" class="match-words"></div>
+                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #E5E7EB;">
+                  <button id="matchShuffle" class="btn btn-subtle" style="width: 100%; margin-bottom: 10px;">
+                    <i class="fas fa-random"></i> خلط الكلمات
+                  </button>
+                  <button id="matchCheck" class="btn btn-primary" style="width: 100%;">
+                    <i class="fas fa-check-circle"></i> تحقق من الإجابات
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- وضع الحروف -->
+      <section id="lettersMode" class="hidden">
+        <div class="letters-header" style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); color: white; padding: 20px; border-radius: 0 0 20px 20px;">
+          <div class="container">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+              <div>
+                <h2 style="margin: 0; display: flex; align-items: center; gap: 10px;">
+                  <i class="fas fa-font"></i> لعبة الحروف
+                </h2>
+                <p style="margin: 5px 0 0 0; opacity: 0.9;">رتب الحروف لتكوين الكلمة الصحيحة!</p>
+              </div>
+              <div style="display: flex; gap: 10px;">
+                <button id="backToGames2" class="btn" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">
+                  <i class="fas fa-arrow-right"></i> العودة
+                </button>
+                <button id="lettersHelp" class="btn" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">
+                  <i class="fas fa-question-circle"></i> مساعدة
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="container" style="margin-top: 40px;">
+          <div class="letters-game-area">
+            <div class="row">
+              <div class="col-sm-5">
+                <div class="letters-image-container" style="background: white; border-radius: 20px; padding: 30px; border: 2px solid #E5E7EB; box-shadow: 0 10px 30px rgba(0,0,0,0.05); text-align: center; height: 100%;">
+                  <div id="lettersHint" style="background: #FEF3C7; color: #92400E; padding: 10px 15px; border-radius: 10px; margin-bottom: 20px; font-size: 14px; display: inline-block;">
+                    <i class="fas fa-lightbulb"></i> انظر إلى الصورة واكتب الكلمة
+                  </div>
+                  <img id="lettersFigure" class="figure" src="" alt="" style="max-width: 100%; max-height: 300px; object-fit: contain; border-radius: 15px; margin-bottom: 20px;" />
+                  <div style="margin-top: 20px;">
+                    <h3 id="lettersWordHint" style="color: #6B7280; margin-bottom: 10px;">الكلمة المطلوبة</h3>
+                    <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                      <button id="lettersNew" class="btn btn-primary">
+                        <i class="fas fa-random"></i> كلمة جديدة
+                      </button>
+                      <button id="lettersShowHint" class="btn btn-subtle">
+                        <i class="fas fa-lightbulb"></i> تلميح
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="col-sm-7">
+                <div class="letters-game-container" style="background: white; border-radius: 20px; padding: 30px; border: 2px solid #E5E7EB; box-shadow: 0 10px 30px rgba(0,0,0,0.05); height: 100%;">
+                  <div class="letters-score" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+                    <div>
+                      <div style="font-size: 14px; color: #6B7280;">التقدم</div>
+                      <div id="lettersScore" style="font-size: 32px; font-weight: 700; color: #111827;">0 / 0</div>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                      <button id="lettersReset" class="btn btn-subtle">
+                        <i class="fas fa-redo"></i> إعادة
+                      </button>
+                      <button id="lettersCheck" class="btn btn-success">
+                        <i class="fas fa-check-circle"></i> تحقق
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div style="margin-bottom: 30px;">
+                    <h3 style="margin-top: 0; margin-bottom: 15px; color: #111827; display: flex; align-items: center; gap: 10px;">
+                      <i class="fas fa-keyboard"></i> اكتب الكلمة
+                    </h3>
+                    <div class="letters-slots" id="lettersSlots" style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; min-height: 80px; background: #F9FAFB; border-radius: 15px; padding: 20px;"></div>
+                  </div>
+                  
+                  <div>
+                    <h3 style="margin-top: 0; margin-bottom: 15px; color: #111827; display: flex; align-items: center; gap: 10px;">
+                      <i class="fas fa-th"></i> مجموعة الحروف
+                    </h3>
+                    <div class="letters-bank" id="lettersBank" style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; min-height: 80px; background: #F9FAFB; border-radius: 15px; padding: 20px;"></div>
+                  </div>
+                  
+                  <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #E5E7EB;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                      <div style="color: #6B7280; font-size: 14px;">
+                        <i class="fas fa-info-circle"></i> اسحب الحروف أو انقر عليها
+                      </div>
+                      <button id="lettersHintBtn" class="btn btn-outline" style="font-size: 14px;">
+                        <i class="fas fa-question"></i> كيف ألعب؟
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+          <div>
+            <p style="margin: 0; color: #6B7280;">
+              <i class="fas fa-graduation-cap"></i> تطبيق البطاقات التفاعلية - النسخة المتطورة
+            </p>
+            <small style="color: #9CA3AF;">انقر على البطاقة لقلبها. جرّب قسم الألعاب للمطابقة وبناء الحروف!</small>
+          </div>
+          <div style="display: flex; gap: 15px;">
+            <button id="toggleSound" class="btn btn-subtle" style="padding: 8px 12px; font-size: 14px;">
+              <i class="fas fa-volume-up"></i> الصوت
+            </button>
+            <button id="toggleTheme" class="btn btn-subtle" style="padding: 8px 12px; font-size: 14px;">
+              <i class="fas fa-moon"></i> الوضع الليلي
+            </button>
+            <button id="showAbout" class="btn btn-subtle" style="padding: 8px 12px; font-size: 14px;">
+              <i class="fas fa-info-circle"></i> عن التطبيق
+            </button>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- نافذة الإحصائيات -->
+  <div id="statsModal" class="modal-overlay hidden">
+    <div class="modal">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="margin: 0; color: #111827;">
+          <i class="fas fa-chart-bar"></i> الإحصائيات
+        </h2>
+        <button id="closeStats" class="btn btn-subtle" style="padding: 8px 12px;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      
+      <div class="stats-content">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 30px;">
+          <div class="stat-box">
+            <div class="stat-value" id="statCards">0</div>
+            <div class="stat-label">البطاقات</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value" id="statPlays">0</div>
+            <div class="stat-label">مرات اللعب</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value" id="statWins">0</div>
+            <div class="stat-label">مرات الفوز</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value" id="statTime">0:00</div>
+            <div class="stat-label">وقت اللعب</div>
+          </div>
+        </div>
+        
+        <div style="margin-bottom: 30px;">
+          <h3 style="color: #111827; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-star"></i> أفضل البطاقات
+          </h3>
+          <div id="topCardsList" style="background: #F9FAFB; border-radius: 12px; padding: 15px;"></div>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+          <h3 style="color: #111827; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-calendar-alt"></i> النشاط اليومي
+          </h3>
+          <div id="dailyActivity" style="background: #F9FAFB; border-radius: 12px; padding: 15px; min-height: 100px; display: flex; align-items: center; justify-content: center; color: #9CA3AF;">
+            جاري تحميل بيانات النشاط...
+          </div>
+        </div>
+        
+        <div class="modal-actions">
+          <button id="exportStats" class="btn btn-outline">
+            <i class="fas fa-download"></i> تصدير الإحصائيات
+          </button>
+          <button id="clearStats" class="btn btn-subtle">
+            <i class="fas fa-trash-alt"></i> مسح الإحصائيات
+          </button>
+          <button id="closeStats2" class="btn btn-primary">
+            <i class="fas fa-check"></i> موافق
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة المساعدة -->
+  <div id="helpModal" class="modal-overlay hidden">
+    <div class="modal" style="max-width: 600px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="margin: 0; color: #111827;">
+          <i class="fas fa-question-circle"></i> مركز المساعدة
+        </h2>
+        <button id="closeHelp" class="btn btn-subtle" style="padding: 8px 12px;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      
+      <div class="help-content">
+        <div style="margin-bottom: 25px;">
+          <h3 style="color: #111827; margin-bottom: 15px;">🎯 كيفية الاستخدام</h3>
+          <div style="background: #F0F9FF; border-radius: 12px; padding: 20px; border-left: 4px solid #3B82F6;">
+            <p style="margin: 0 0 15px 0; color: #1E40AF;">
+              <strong>مرحبًا بك في تطبيق البطاقات التفاعلية!</strong>
+            </p>
+            <p style="margin: 0; color: #374151; line-height: 1.6;">
+              هذا التطبيق يساعدك على تعلم المفردات العربية والإنجليزية بطريقة تفاعلية. يمكنك استخدام البطاقات التعليمية، ألعاب المطابقة، وألعاب تركيب الحروف.
+            </p>
+          </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+          <div class="help-card">
+            <div class="help-icon" style="background: #DBEAFE; color: #1E40AF;">
+              <i class="fas fa-cogs"></i>
+            </div>
+            <h4>لوحة التحكم</h4>
+            <p>أضف بطاقات جديدة، عدل البيانات، وأدر المستخدمين</p>
+          </div>
+          <div class="help-card">
+            <div class="help-icon" style="background: #D1FAE5; color: #065F46;">
+              <i class="fas fa-gamepad"></i>
+            </div>
+            <h4>الألعاب</h4>
+            <p>اختبر معرفتك بألعاب تعليمية ممتعة</p>
+          </div>
+        </div>
+        
+        <div class="help-section">
+          <h4><i class="fas fa-download"></i> رفع البيانات</h4>
+          <p>يمكنك رفع ملف JSON يحتوي على البطاقات الخاصة بك، أو استخدام البيانات الافتراضية.</p>
+        </div>
+        
+        <div class="modal-actions">
+          <button id="closeHelp2" class="btn btn-primary">
+            <i class="fas fa-check"></i> فهمت
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة حول التطبيق -->
+  <div id="aboutModal" class="modal-overlay hidden">
+    <div class="modal" style="max-width: 500px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="margin: 0; color: #111827;">
+          <i class="fas fa-info-circle"></i> عن التطبيق
+        </h2>
+        <button id="closeAbout" class="btn btn-subtle" style="padding: 8px 12px;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      
+      <div class="about-content" style="text-align: center;">
+        <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 32px; color: white;">ب</div>
+        
+        <h3 style="color: #111827; margin-bottom: 10px;">البطاقات التفاعلية</h3>
+        <p style="color: #6B7280; margin-bottom: 20px;">نسخة 2.0 المتطورة</p>
+        
+        <div style="background: #F9FAFB; border-radius: 12px; padding: 20px; margin-bottom: 25px;">
+          <p style="margin: 0 0 15px 0; color: #374151;">
+            تطبيق تعليمي تفاعلي لتعلم المفردات العربية والإنجليزية بطريقة ممتعة وفعالة.
+          </p>
+          <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;">
+            <span class="feature-tag">🎴 بطاقات تفاعلية</span>
+            <span class="feature-tag">🧩 ألعاب تعليمية</span>
+            <span class="feature-tag">🎯 إحصائيات متقدمة</span>
+            <span class="feature-tag">🔒 نظام آمن</span>
+          </div>
+        </div>
+        
+        <div style="color: #9CA3AF; font-size: 14px;">
+          <p>تم التطوير بواسطة فريق البطاقات التعليمية</p>
+          <p>© 2024 جميع الحقوق محفوظة</p>
+        </div>
+        
+        <div class="modal-actions" style="margin-top: 25px;">
+          <button id="closeAbout2" class="btn btn-primary">
+            <i class="fas fa-check"></i> موافق
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- إشعارات -->
+  <div id="notificationArea" style="position: fixed; top: 20px; right: 20px; z-index: 9999; max-width: 350px;"></div>
+
+  <!-- نصيحة عائمة -->
+  <div id="floatingTip" style="position: fixed; bottom: 80px; left: 20px; background: #111827; color: white; padding: 12px 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index: 9998; display: none; max-width: 300px;">
+    <div style="display: flex; align-items: start; gap: 10px;">
+      <i class="fas fa-lightbulb" style="color: #FBBF24; font-size: 18px; margin-top: 2px;"></i>
+      <div>
+        <div style="font-weight: 600; margin-bottom: 5px;">💡 تلميح سريع</div>
+        <div id="tipContent" style="font-size: 14px; opacity: 0.9;"></div>
+      </div>
+      <button id="closeTip" style="background: none; border: none; color: white; cursor: pointer; padding: 0; margin-left: 10px;">×</button>
+    </div>
+  </div>
+
+  <script>
+    // البيانات الافتراضية
+    const DEFAULT_ITEMS = [
+      {"id": "waiter", "en": "Waiter", "ar": "النادل", "category": "مهن", "difficulty": 1},
+      {"id": "strawberries", "en": "Strawberries", "ar": "فراولة", "category": "فواكه", "difficulty": 1},
+      {"id": "biscuits", "en": "Biscuits", "ar": "بسكويت", "category": "طعام", "difficulty": 1},
+      {"id": "spoon", "en": "Spoon", "ar": "ملعقة", "category": "أدوات", "difficulty": 1},
+      {"id": "napkin", "en": "Napkin", "ar": "منديل", "category": "أدوات", "difficulty": 1},
+      {"id": "fork", "en": "Fork", "ar": "شوكة", "category": "أدوات", "difficulty": 1},
+      {"id": "knife", "en": "Knife", "ar": "سكين", "category": "أدوات", "difficulty": 2},
+      {"id": "pepper", "en": "Pepper", "ar": "فلفل", "category": "طعام", "difficulty": 2},
+      {"id": "salt", "en": "Salt", "ar": "ملح", "category": "طعام", "difficulty": 2},
+      {"id": "chopsticks", "en": "Chopsticks", "ar": "عيدان أكل", "category": "أدوات", "difficulty": 3}
+    ];
+    
+    // معلومات التطبيق
+    const APP_INFO = {
+      name: "البطاقات التفاعلية",
+      version: "2.0",
+      author: "فريق البطاقات التعليمية",
+      year: "2024"
+    };
+  </script>
+
+  <!-- تضمين الملفات الجديدة -->
+  <script src="sounds.js"></script>
+  <script src="stats.js"></script>
+  <script src="help.js"></script>
+  <script src="script.js"></script>
+  
+  <!-- أنماط إضافية -->
+  <style>
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 20px;
+      animation: fadeIn 0.3s ease;
+    }
+    
+    .modal {
+      background: white;
+      border-radius: 20px;
+      padding: 30px;
+      max-width: 800px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      animation: slideInUp 0.3s ease;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+    }
+    
+    .stat-box {
+      background: white;
+      border: 1px solid #E5E7EB;
+      border-radius: 15px;
+      padding: 20px;
+      text-align: center;
+      transition: transform 0.2s ease;
+    }
+    
+    .stat-box:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    }
+    
+    .stat-value {
+      font-size: 32px;
+      font-weight: 800;
+      margin-bottom: 5px;
+    }
+    
+    .stat-label {
+      color: #6B7280;
+      font-size: 14px;
+    }
+    
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 30px;
+      justify-content: flex-end;
+    }
+    
+    .help-card {
+      background: white;
+      border: 1px solid #E5E7EB;
+      border-radius: 15px;
+      padding: 20px;
+      text-align: center;
+      transition: transform 0.2s ease;
+    }
+    
+    .help-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    }
+    
+    .help-icon {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 15px;
+      font-size: 20px;
+    }
+    
+    .help-section {
+      background: #F9FAFB;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .help-section h4 {
+      color: #111827;
+      margin-top: 0;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .help-section p {
+      color: #6B7280;
+      margin: 0;
+      line-height: 1.6;
+    }
+    
+    .feature-tag {
+      background: #E5E7EB;
+      color: #4B5563;
+      padding: 5px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    @keyframes slideInUp {
+      from { transform: translateY(30px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    
+    .notification {
+      background: white;
+      border-radius: 12px;
+      padding: 15px 20px;
+      margin-bottom: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+      border-left: 4px solid #2563EB;
+      animation: slideInRight 0.3s ease;
+      max-width: 350px;
+    }
+    
+    @keyframes slideInRight {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    
+    .notification.success {
+      border-left-color: #10B981;
+    }
+    
+    .notification.error {
+      border-left-color: #EF4444;
+    }
+    
+    .notification.warning {
+      border-left-color: #F59E0B;
+    }
+    
+    .notification.info {
+      border-left-color: #3B82F6;
+    }
+    
+    .game-card:hover {
+      transform: translateY(-5px);
+    }
+  </style>
+</body>
+</html>
